@@ -50,13 +50,15 @@ class MyLabel(QLabel):
         self.y = []
         self.sortedx = []
         self.sortedy = []
+        self.scale = 1
         self.press = True
+        
     def mousePressEvent(self,event):
         if self.press:
-            self.x.append(event.pos().x())
-            self.y.append(event.pos().y())
-            self.sortedx.append(event.pos().x())
-            self.sortedy.append(event.pos().y())
+            self.x.append(event.pos().x()/self.scale)
+            self.y.append(event.pos().y()/self.scale)
+            self.sortedx.append(event.pos().x()/self.scale)
+            self.sortedy.append(event.pos().y()/self.scale)
             if len(self.sortedx) % 4 == 0:
                 self.SpinalSort()
             self.update()
@@ -71,12 +73,12 @@ class MyLabel(QLabel):
                 #颜色索引
                 ind = (i//4) % 8 + 7
                 painter.setPen(QPen(QtCore.Qt.GlobalColor(ind),2,Qt.SolidLine))
-                painter.drawEllipse(self.sortedx[i], self.sortedy[i], 2, 2)
+                painter.drawEllipse(self.sortedx[i]*self.scale, self.sortedy[i]*self.scale, 2, 2)
                 # print(self.sortedx[i], self.sortedy[i])
                 # painter.drawEllipse(self.x[i], self.y[i], 2, 2)
                 if( i % 4 == 3):
-                    centerX = sum(self.sortedx[i-3:i+1])/4
-                    centerY = sum(self.sortedy[i-3:i+1])/4
+                    centerX = sum(self.sortedx[i-3:i+1])/4*self.scale
+                    centerY = sum(self.sortedy[i-3:i+1])/4*self.scale
                     painter.setFont(QtGui.QFont('arial', 20))  #给画家设置字体、大小
                     painter.drawText(centerX,centerY,str(i//4 + 1))
                     # print(len(self.x))
@@ -124,11 +126,12 @@ class MainWindow(QMainWindow):
         #X光朝向
         self.items = ("正面","侧面","背面")
         self.orientdict = {'正面':'front', "侧面":"lateral", "背面":"back"}
+        
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(self.width, self.height)
         # 禁止禁止拉伸窗口大小  
-        # MainWindow.setFixedSize(self.width, self.height)
+        MainWindow.setFixedSize(self.width, self.height)
         
         
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -186,6 +189,18 @@ class MainWindow(QMainWindow):
         # self.markButton.setEnabled(False)
         # self.markButton.clicked.connect(self.start_marking)
         # self.verticalLayout.addWidget(self.markButton)
+        #放大
+        self.zoominButton = QtWidgets.QPushButton(self.layoutWidget)
+        self.zoominButton.setObjectName("zoominButton")
+        self.zoominButton.setEnabled(False)
+        self.zoominButton.clicked.connect(self.zoomin)     
+        self.verticalLayout.addWidget(self.zoominButton)
+        #缩小
+        self.zoomoutButton = QtWidgets.QPushButton(self.layoutWidget)
+        self.zoomoutButton.setObjectName("zoomoutButton")
+        self.zoomoutButton.setEnabled(False)
+        self.zoomoutButton.clicked.connect(self.zoomout)     
+        self.verticalLayout.addWidget(self.zoomoutButton)
         #撤销
         self.UndoButton = QtWidgets.QPushButton(self.layoutWidget)
         self.UndoButton.setObjectName("UndoButton")
@@ -238,6 +253,8 @@ class MainWindow(QMainWindow):
         self.dirButton.setText(QtWidgets.QApplication.translate("MainWindow", "选择文件夹", None, -1))
         self.preButton.setText(QtWidgets.QApplication.translate("MainWindow", "上一张", None, -1))
         self.nextButton.setText(QtWidgets.QApplication.translate("MainWindow", "下一张", None, -1))
+        self.zoominButton.setText(QtWidgets.QApplication.translate("MainWindow", "放大", None, -1))
+        self.zoomoutButton.setText(QtWidgets.QApplication.translate("MainWindow", "缩小", None, -1))
         # self.markButton.setText(QtWidgets.QApplication.translate("MainWindow", "开始标注", None, -1))
         self.UndoButton.setText(QtWidgets.QApplication.translate("MainWindow", "撤销上个点", None, -1))
         self.CancelButton.setText(QtWidgets.QApplication.translate("MainWindow", "撤销某节脊椎点", None, -1))
@@ -303,6 +320,8 @@ class MainWindow(QMainWindow):
                 self.preButton.setEnabled(True)
                 self.nextButton.setEnabled(True)
                 self.UndoButton.setEnabled(True)
+                self.zoominButton.setEnabled(True)
+                self.zoomoutButton.setEnabled(True)
                 self.CancelButton.setEnabled(True)
                 self.remarkButton.setEnabled(True)
                 self.saveButton.setEnabled(True)
@@ -405,6 +424,20 @@ class MainWindow(QMainWindow):
     # def start_marking(self):
     #     self.ImgShow.press = True
     
+    #放大
+    def zoomin(self):
+        self.ImgShow.scale = self.ImgShow.scale+0.05
+        if self.ImgShow.scale>=10:
+            self.ImgShow.scale=10
+        self.Imgshow()
+    
+    #缩小
+    def zoomout(self):
+        self.ImgShow.scale = self.ImgShow.scale-0.05
+        if self.ImgShow.scale <= 0.2:
+            self.ImgShow.scale = 0.2
+        self.Imgshow()
+        
     #撤销某节脊椎点
     def Cancel(self):
         num, ok = QtWidgets.QInputDialog.getInt(self, '输入数字', '脊椎号码', 1, 1)
@@ -474,9 +507,9 @@ class MainWindow(QMainWindow):
                 filename = os.path.join(self.PointsPath,self.img_index_dict[self.current_index]+'.csv')
                 with open(filename, "w", encoding = 'utf8',newline = "") as csvFile :#创建csv文件
                     writer = csv.writer(csvFile) #创建写的对象
-                    writer.writerow([self.orientdict[self.item]])
+                    writer.writerow([self.orientdict[self.item],self.orientdict[self.item]])
                     for i in range(len(self.ImgShow.sortedx)):
-                        writer.writerow([self.ImgShow.sortedx[i], self.ImgShow.sortedy[i]])
+                        writer.writerow([int(self.ImgShow.sortedx[i]), int(self.ImgShow.sortedy[i])])
                 #存标点的图片
                 image= Image.open(self.current_filename)
                 draw = ImageDraw.Draw(image)
@@ -505,7 +538,9 @@ class MainWindow(QMainWindow):
     #图片展示
     def Imgshow(self):
         # self.image = QtGui.QImage(self.current_filename)
-        image = Image.open(self.current_filename)
+        img_raw = Image.open(self.current_filename)
+        width, height = img_raw.size
+        image = img_raw.resize((int(width*self.ImgShow.scale), int(height*self.ImgShow.scale)))
         self.Qimg = image.toqimage()
         self.QPixmapImg = QtGui.QPixmap.fromImage(self.Qimg)
         # print(self.current_filename)
@@ -527,6 +562,7 @@ class MainWindow(QMainWindow):
         self.ImgShow.y.clear()
         self.ImgShow.sortedx.clear()
         self.ImgShow.sortedy.clear()
+        self.ImgShow.scale = 1
         self.ImgShow.update()
     
     #判断图片是否已标注
